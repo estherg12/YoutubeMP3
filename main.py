@@ -8,6 +8,20 @@ YOUTUBE_REGEX = re.compile(
     r"^(https?://)?(www\.)?(youtube\.com/(watch\?v=|shorts/)|youtu\.be/)[a-zA-Z0-9_-]{11}"
 )
 
+class QuietLogger:
+    """Filter out non-fatal warnings while keeping errors visible."""
+    def debug(self, msg):
+        pass
+
+    def warning(self, msg):
+        # Ignore JavaScript runtime notice
+        if "JavaScript runtime" in msg or "EJS" in msg:
+            return
+        print(f"[Warning] {msg}")
+
+    def error(self, msg):
+        print(f"[Error] {msg}")
+
 
 def is_valid_youtube_url(url: str) -> bool:
     try:
@@ -21,6 +35,7 @@ def is_valid_youtube_url(url: str) -> bool:
             return False
 
         return bool(YOUTUBE_REGEX.match(url))
+
     except Exception:
         return False
 
@@ -45,14 +60,16 @@ def download_as_mp3(url: str, custom_name: str | None = None, output_dir: str = 
     # Determine base template based on wether a valid custom name was provided
     safe_name = sanitize_filename(custom_name) if custom_name else ""
     if safe_name:
-        out_template = os.path.join(output_dir, f"{safe_name}.%(ext)s")
+        filename_template = f"{safe_name}.%(ext)s"
     else:
-        out_template = os.path.join(output_dir, "%(title)s.%(ext)s")
+        filename_template = "%(title)s.%(ext)s"
+
+    out_template = os.path.join(output_dir, filename_template)
 
     # yt-dlp configuration: Extract the best audio and convert via ffmpeg
     ydl_opts = {
         "format": "bestaudio/best",
-        "outtmpl": os.path.join(output_dir, "%(title)s.%(ext)s"),
+        "outtmpl": out_template,
         "ffmpeg_location": r"C:\ffmpeg-9.0.1-essentials_build\bin",
         "postprocessors": [
             {
@@ -61,9 +78,15 @@ def download_as_mp3(url: str, custom_name: str | None = None, output_dir: str = 
                 "preferredquality": "192",
             }
         ],
+        "logger": QuietLogger(),
         "quiet": False,
-        "no_warnings": False,
+        "no_warnings": True,
         "restrictfilenames": True,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["default"]
+            }
+        },
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
