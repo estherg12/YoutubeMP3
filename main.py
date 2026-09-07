@@ -24,12 +24,30 @@ def is_valid_youtube_url(url: str) -> bool:
     except Exception:
         return False
 
+def sanitize_filename(name: str) -> str:
+    # Strip dangerous filesystem characters: \ / : * ? " < > |
+    cleaned = re.sub(r'[\\/:*?"<>|]', '', name).strip()
 
-def download_as_mp3(url: str, output_dir: str = "downloads") -> str:
+    # Strip any directory traversal attempts or trailing extensions
+    cleaned = os.path.basename(cleaned)
+    if cleaned.lower().endswith(".mp3"):
+        cleaned = cleaned[:-4].strip()
+    return cleaned
+
+
+
+def download_as_mp3(url: str, custom_name: str | None = None, output_dir: str = "downloads") -> str:
     if not is_valid_youtube_url(url):
         raise ValueError("Invalid YouTube URL provided.")
 
     os.makedirs(output_dir, exist_ok=True)
+
+    # Determine base template based on wether a valid custom name was provided
+    safe_name = sanitize_filename(custom_name) if custom_name else ""
+    if safe_name:
+        out_template = os.path.join(output_dir, f"{safe_name}.%(ext)s")
+    else:
+        out_template = os.path.join(output_dir, "%(title)s.%(ext)s")
 
     # yt-dlp configuration: Extract the best audio and convert via ffmpeg
     ydl_opts = {
@@ -58,8 +76,10 @@ def download_as_mp3(url: str, output_dir: str = "downloads") -> str:
 
 if __name__ == "__main__":
     user_url = input("Enter YouTube URL: ").strip()
+    user_filename = input("Enter custom name (leave blank to use video title): ").strip()
+
     try:
-        saved_file = download_as_mp3(user_url)
+        saved_file = download_as_mp3(user_url, custom_name=user_filename)
         print(f"Success! Audio saved as: {saved_file}")
     except ValueError as err:
         print(f"Input Error: {err}")
