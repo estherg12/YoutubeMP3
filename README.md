@@ -100,10 +100,15 @@ All converted files are automatically saved inside the local ```downloads/``` di
 
 ## Project Structure
 YoutubeMP3/
-├── downloads/          # Destination folder for converted .mp3 files
-├── .gitignore          # Ignores downloads/, .venv/, and IDE cache
-├── main.py             # Core script containing URL validation, download logic, and CLI
-└── README.md           # Project documentation
+
+├── downloads/ 
+
+├── .gitignore  
+
+├── main.py  
+
+└── README.md   
+
 
 ## Recommended .gitignore
 Ensure your ```.gitignore``` includes:
