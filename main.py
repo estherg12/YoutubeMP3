@@ -35,6 +35,7 @@ def download_as_mp3(url: str, output_dir: str = "downloads") -> str:
     ydl_opts = {
         "format": "bestaudio/best",
         "outtmpl": os.path.join(output_dir, "%(title)s.%(ext)s"),
+        "ffmpeg_location": r"C:\ffmpeg-9.0.1-essentials_build\bin",
         "postprocessors": [
             {
                 "key": "FFmpegExtractAudio",
@@ -44,7 +45,6 @@ def download_as_mp3(url: str, output_dir: str = "downloads") -> str:
         ],
         "quiet": False,
         "no_warnings": False,
-        # Restrict execution of custom scripts/hooks
         "restrictfilenames": True,
     }
 
