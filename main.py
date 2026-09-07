@@ -49,12 +49,7 @@ def sanitize_filename(name: str) -> str:
         cleaned = cleaned[:-4].strip()
     return cleaned
 
-
-
 def download_as_mp3(url: str, custom_name: str | None = None, output_dir: str = "downloads") -> str:
-    if not is_valid_youtube_url(url):
-        raise ValueError("Invalid YouTube URL provided.")
-
     os.makedirs(output_dir, exist_ok=True)
 
     # Determine base template based on wether a valid custom name was provided
@@ -98,13 +93,27 @@ def download_as_mp3(url: str, custom_name: str | None = None, output_dir: str = 
 
 
 if __name__ == "__main__":
-    user_url = input("Enter YouTube URL: ").strip()
-    user_filename = input("Enter custom name (leave blank to use video title): ").strip()
+    print("YouTube to MP3 Converter (STOP or enter an invalid URL to exit)\n")
 
-    try:
-        saved_file = download_as_mp3(user_url, custom_name=user_filename)
-        print(f"Success! Audio saved as: {saved_file}")
-    except ValueError as err:
-        print(f"Input Error: {err}")
-    except Exception as err:
-        print(f"Download Error: {err}")
+    while True:
+        user_url = input("Enter YouTube URL: ").strip()
+
+        # Stop condition: STOP
+        if user_url.upper() == "STOP" or not user_url:
+            print("Stopping program... Goodbye!")
+            break
+
+        # Stop condition: invalid URL
+        if not is_valid_youtube_url(user_url):
+            print("Invalid YouTube URL. Please try again.")
+            break
+
+        user_filename = input("Enter custom name (leave blank to use video title): ").strip()
+
+        try:
+            saved_file = download_as_mp3(user_url, custom_name=user_filename)
+            print(f"Success! Audio saved as: {saved_file}")
+        except ValueError as err:
+            print(f"Input Error: {err}")
+        except Exception as err:
+            print(f"Download Error: {err}")
