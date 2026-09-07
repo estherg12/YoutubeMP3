@@ -77,12 +77,11 @@ def download_as_mp3(url: str, custom_name: str | None = None, output_dir: str = 
             }
         ],
         "logger": QuietLogger(),
-        "quiet": False,
         "no_warnings": True,
         "restrictfilenames": True,
         "extractor_args": {
             "youtube": {
-                "player_client": ["default"]
+                "player_client": ["android", "ios", "web"]
             }
         },
     }
@@ -103,8 +102,19 @@ def process_csv_batch():
 
     try:
         with open(raw_path, mode="r", encoding="utf-8-sig") as csv_file:
-            reader = csv.reader(csv_file)
-            rows = list(reader)
+            sample = csv_file.read(2048)
+            csv_file.seek(0)
+            delimiter = ","
+
+            try:
+                dialect = csv.Sniffer().sniff(sample, delimiters=[",", ";", "\t"])
+                delimiter = dialect.delimiter
+            except Exception:
+                if ";" in sample:
+                    delimiter = ";"
+
+            reader = csv.reader(csv_file, delimiter=delimiter)
+            rows = [row for row in reader if any(field.strip() for field in row)]
 
             if not rows:
                 print("The provided CSV file is empty.\n")
@@ -116,7 +126,7 @@ def process_csv_batch():
                 if not row:
                     continue
 
-                url = row[0].strip()
+                url = row[0].strip() if len(row) > 0 else ""
                 if index == 1 and not is_valid_youtube_url(url) and any(header_word in url.lower() for header_word in ["url", "link", "youtube"]):
                     continue
 
@@ -129,7 +139,8 @@ def process_csv_batch():
                     continue
 
                 try:
-                    print(f"  Downloading: {custom_name or 'Default Video Title'}...")
+                    display_name = custom_name if custom_name else "Default Video Title"
+                    print(f"  Downloading: {display_name}...")
                     saved_path = download_as_mp3(url, custom_name=custom_name)
                     print(f"  Success: {saved_path}\n")
 
