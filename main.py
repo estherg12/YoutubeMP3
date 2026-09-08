@@ -93,6 +93,55 @@ def download_as_mp3(url: str, custom_name: str | None = None, output_dir: str = 
         base_name, _ = os.path.splitext(filename)
         return f"{base_name}.mp3"
 
+def print_failed_rows_table(failed_rows: list[dict]) -> None:
+    """Print a table with the CSV rows that could not be downloaded."""
+    if not failed_rows:
+        print("All rows were downloaded successfully.\n")
+        return
+
+    def one_line(value: str, fallback: str = "") -> str:
+        # Error messages can span several lines, which would break the table
+        return " ".join(str(value).split()) or fallback
+
+    headers = ("Row", "URL", "Name", "Reason")
+    table = [
+        (
+            str(item["row"]),
+            one_line(item["url"], "(empty)"),
+            one_line(item["name"], "(no custom name)"),
+            one_line(item["reason"], "Unknown error"),
+        )
+        for item in failed_rows
+    ]
+
+    # Size each column to its widest value, capped so the table stays readable
+    max_widths = (5, 60, 40, 60)
+    widths = [
+        min(max(len(headers[col]), *(len(row[col]) for row in table)), max_widths[col])
+        for col in range(len(headers))
+    ]
+
+    def format_row(values) -> str:
+        cells = []
+        for col, value in enumerate(values):
+            width = widths[col]
+            if len(value) > width:
+                value = value[: width - 3] + "..."
+            cells.append(value.ljust(width))
+        return "| " + " | ".join(cells) + " |"
+
+    separator = "+" + "+".join("-" * (width + 2) for width in widths) + "+"
+
+    print(f"{len(failed_rows)} row(s) failed and were NOT downloaded:\n")
+    print(separator)
+    print(format_row(headers))
+    print(separator)
+    for row in table:
+        print(format_row(row))
+    print(separator)
+    print("\nFix or re-run these rows to try again.\n")
+
+
 def process_csv_batch():
     raw_path = input("Enter path to CSV file: ").strip().strip('"'). strip("'")
 
@@ -122,6 +171,9 @@ def process_csv_batch():
 
             print(f"\nProcessing {len(rows)} rows from CSV...\n")
 
+            failed_rows = []
+            succeeded = 0
+
             for index, row in enumerate(rows, start=1):
                 if not row:
                     continue
@@ -136,6 +188,12 @@ def process_csv_batch():
 
                 if not is_valid_youtube_url(url):
                     print(f"  [Skipped] Invalid YouTube URL: '{url}'\n")
+                    failed_rows.append({
+                        "row": index,
+                        "url": url,
+                        "name": custom_name,
+                        "reason": "Invalid YouTube URL",
+                    })
                     continue
 
                 try:
@@ -143,11 +201,20 @@ def process_csv_batch():
                     print(f"  Downloading: {display_name}...")
                     saved_path = download_as_mp3(url, custom_name=custom_name)
                     print(f"  Success: {saved_path}\n")
+                    succeeded += 1
 
                 except Exception as e:
                     print(f"  Failed: {e}\n")
+                    failed_rows.append({
+                        "row": index,
+                        "url": url,
+                        "name": custom_name,
+                        "reason": str(e).strip() or e.__class__.__name__,
+                    })
 
-            print(f"\nProcessing complete. Total rows: {len(rows)}\n")
+            print(f"\nProcessing complete. Total rows: {len(rows)} | "
+                  f"Downloaded: {succeeded} | Failed: {len(failed_rows)}\n")
+            print_failed_rows_table(failed_rows)
 
     except Exception as e:
         print(f"Error processing CSV file: {e}\n")
