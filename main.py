@@ -9,6 +9,16 @@ YOUTUBE_REGEX = re.compile(
     r"^(https?://)?(www\.)?(youtube\.com/(watch\?v=|shorts/)|youtu\.be/)[a-zA-Z0-9_-]{11}"
 )
 
+# Reject any audio whose resulting MP3 would be bigger than this
+MAX_MP3_SIZE_MB = 15
+MAX_MP3_SIZE_BYTES = MAX_MP3_SIZE_MB * 1024 * 1024
+MP3_BITRATE_KBPS = 192
+
+
+class FileTooLargeError(Exception):
+    """Raised when the resulting MP3 would exceed MAX_MP3_SIZE_MB."""
+
+
 class QuietLogger:
     """Filter out non-fatal warnings while keeping errors visible."""
     def debug(self, msg):
@@ -52,6 +62,17 @@ def sanitize_filename(name: str) -> str:
         cleaned = cleaned[:-4].strip()
     return cleaned
 
+def estimated_mp3_size(duration_seconds: float | None) -> int | None:
+    """Estimate the MP3 size in bytes from its duration and the target bitrate."""
+    if not duration_seconds or duration_seconds <= 0:
+        return None
+    return int(duration_seconds * MP3_BITRATE_KBPS * 1000 / 8)
+
+
+def format_size(num_bytes: float) -> str:
+    return f"{num_bytes / (1024 * 1024):.1f} MB"
+
+
 def download_as_mp3(url: str, custom_name: str | None = None, output_dir: str = "downloads") -> str:
     os.makedirs(output_dir, exist_ok=True)
 
@@ -73,7 +94,7 @@ def download_as_mp3(url: str, custom_name: str | None = None, output_dir: str = 
             {
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": "mp3",
-                "preferredquality": "192",
+                "preferredquality": str(MP3_BITRATE_KBPS),
             }
         ],
         "logger": QuietLogger(),
@@ -87,11 +108,31 @@ def download_as_mp3(url: str, custom_name: str | None = None, output_dir: str = 
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        # Inspect the video first so oversized audio is never downloaded
+        probe = ydl.extract_info(url, download=False)
+        estimated = estimated_mp3_size(probe.get("duration"))
+        if estimated and estimated > MAX_MP3_SIZE_BYTES:
+            raise FileTooLargeError(
+                f"Too large: ~{format_size(estimated)} (limit {MAX_MP3_SIZE_MB} MB)"
+            )
+
         info = ydl.extract_info(url, download=True)
         filename = ydl.prepare_filename(info)
         # yt-dlp changes the extension to .mp3 post-conversion
         base_name, _ = os.path.splitext(filename)
-        return f"{base_name}.mp3"
+        mp3_path = f"{base_name}.mp3"
+
+        # The estimate can be off, so enforce the limit on the real file too
+        if os.path.exists(mp3_path):
+            actual_size = os.path.getsize(mp3_path)
+            if actual_size > MAX_MP3_SIZE_BYTES:
+                os.remove(mp3_path)
+                raise FileTooLargeError(
+                    f"Too large: {format_size(actual_size)} "
+                    f"(limit {MAX_MP3_SIZE_MB} MB), file deleted"
+                )
+
+        return mp3_path
 
 def print_failed_rows_table(failed_rows: list[dict]) -> None:
     """Print a table with the CSV rows that could not be downloaded."""
@@ -203,6 +244,15 @@ def process_csv_batch():
                     print(f"  Success: {saved_path}\n")
                     succeeded += 1
 
+                except FileTooLargeError as e:
+                    print(f"  [Skipped] {e}\n")
+                    failed_rows.append({
+                        "row": index,
+                        "url": url,
+                        "name": custom_name,
+                        "reason": str(e),
+                    })
+
                 except Exception as e:
                     print(f"  Failed: {e}\n")
                     failed_rows.append({
@@ -241,6 +291,8 @@ def process_manual_loop():
             print("Downloading and converting...")
             saved_file = download_as_mp3(user_url, custom_name=user_filename)
             print(f"Success! Audio saved as: {saved_file}")
+        except FileTooLargeError as err:
+            print(f"Skipped: {err}")
         except ValueError as err:
             print(f"Input Error: {err}")
         except Exception as err:
