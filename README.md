@@ -13,6 +13,7 @@ Supports both **interactive manual mode** (prompting link-by-link) and **batch a
   - Strict regex domain and URL parsing against YouTube schemas (blocks SSRF and malicious network calls).
   - Sanitization of user-provided filenames to prevent directory traversal (`../`) and illegal OS characters.
   - Native Python invocation without shell command injection vulnerabilities.
+  - For security reasons, when batching a CSV, no file bigger than 15MB will be downloaded.
 - **CSV Batch Mode:**
   - Automated delimiter sniffer supporting standard commas (`,`), semicolons (`;`, standard in European/Spanish Excel exports), and tabs (`\t`).
   - Supports UTF-8 encoding with BOM (`utf-8-sig`) for accented characters.
