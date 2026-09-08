@@ -292,7 +292,10 @@ def process_manual_loop():
             saved_file = download_as_mp3(user_url, custom_name=user_filename)
             print(f"Success! Audio saved as: {saved_file}")
         except FileTooLargeError as err:
-            print(f"Skipped: {err}")
+            print(f"\n{'=' * 60}")
+            print(f"WARNING: File exceeds {MAX_MP3_SIZE_MB} MB size limit!")
+            print(f"{err}")
+            print(f"{'=' * 60}\n")
         except ValueError as err:
             print(f"Input Error: {err}")
         except Exception as err:
