@@ -49,7 +49,7 @@ To prevent format throttling and silence ```yt-dlp``` JS runtime notices, instal
 
 ### 1. Clone the repository
 ```
-git clone [https://github.com/](https://github.com/)<your-username>/YoutubeMP3.git
+git clone [https://github.com/](https://github.com/)estherg12/YoutubeMP3.git
 cd YoutubeMP3
 ```
 
